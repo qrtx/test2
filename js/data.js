@@ -126,19 +126,30 @@ const rtdb = {
   },
 
   /* ----- смены по месяцу ----- */
-  async getShiftsByMonth(y, m){
-    const from = `${y}-${String(m+1).padStart(2,'0')}-01`;
-    const to   = `${y}-${String(m+1).padStart(2,'0')}-31`;
-    const q = query(ref(db, P.shifts), orderByChild('date'), startAt(from), endAt(to));
-    const snap = await get(q);
-    const list = snap.exists() ? Object.values(snap.val()) : [];
-    const res = {};
-    list.forEach(s => {
-      const key = toISO(s.date);
-      (res[key] = res[key] || []).push({ name: s.employee, point: s.point });
-    });
-    return res;
-  },
+// Смены по месяцу (устойчиво к кривым записям)
+async function getShiftsByMonth(y, m){
+  const from = `${y}-${String(m+1).padStart(2,'0')}-01`;
+  const to   = `${y}-${String(m+1).padStart(2,'0')}-31`;
+  const q = query(ref(db, P.shifts), orderByChild('date'), startAt(from), endAt(to));
+  const snap = await get(q);
+  const raw  = snap.exists() ? Object.values(snap.val()) : [];
+  const res = {};
+  raw.forEach(s => {
+    if (!s || !s.date || !s.point || !(s.employee || s.name)) return; // пропускаем мусор
+    const key = (() => {
+      try {
+        const d = new Date(s.date);
+        if (isNaN(d)) return null;
+        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+          .toISOString().slice(0,10);
+      } catch { return null; }
+    })();
+    if (!key) return;
+    (res[key] = res[key] || []).push({ name: s.employee || s.name, point: s.point });
+  });
+  return res;
+}
+
 
   /* ----- реквизиты (bank) — нормализация строк/объектов ----- */
   async getRequisites(){

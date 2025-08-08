@@ -1,11 +1,10 @@
 /* js/data.js — RTDB адаптер под твою БД + MOCK fallback
- * ВАЖНО: в index.html подключение должно быть МОДУЛЬНОЕ:
+ * Подключать как ES-модуль до app.js
  * <script type="module" src="js/data.js"></script>
  */
-
 export const DATA_MODE = (localStorage.getItem('DATA_MODE') || 'FIREBASE_RTDB'); // 'FIREBASE_RTDB' | 'MOCK'
 
-/* ========= MOCK (на всякий) ========= */
+/* ========= MOCK (на всякий случай) ========= */
 const mockDB = (()=> {
   const seed = {
     employees: ['Серёга 3','Серёга Ш','Арина','Андрей','Валера','Даша','Ростислав','Алексей','Саня'],
@@ -51,11 +50,11 @@ const mockDB = (()=> {
 /* ========= Firebase RTDB ========= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getDatabase, ref, child, get, set, push, remove, update,
+  getDatabase, ref, child, get, set, push, update,
   query, orderByChild, startAt, endAt
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-/* ТВОЙ КОНФИГ */
+/* ТВОЙ КОНФИГ (из консоли) */
 const firebaseConfig = {
   apiKey: "AIzaSyBx7N43Wpf0Ohh6197YLlv-ppeHHaJq_TQ",
   authDomain: "ozon-shifts.firebaseapp.com",
@@ -69,7 +68,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
 
-/* Пути и формат — строго по твоей БД */
+/* Пути и формат — как у тебя в базе */
 const P = {
   bank      : 'bank',       // { "<name>": {phone, bank} } ИЛИ { "<pushId>": "Имя: +7... - Банк" }
   employees : 'employees',  // { "<pushId>": "Имя", ... }
@@ -90,7 +89,7 @@ const rtdb = {
   async getEmployees(){
     const snap = await get(ref(db, P.employees));
     const val = snap.val() || {};
-    // values = имена
+    // значения = имена
     return Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
   },
   async addEmployee(name){ await set(push(ref(db, P.employees)), name); },
@@ -141,27 +140,24 @@ const rtdb = {
     return res;
   },
 
-  /* ----- реквизиты (bank) — смешанный формат в базе ----- */
+  /* ----- реквизиты (bank) — нормализация строк/объектов ----- */
   async getRequisites(){
     const snap = await get(ref(db, P.bank));
     const v = snap.val() || {};
     const out = {};
     for (const [key, rec] of Object.entries(v)) {
       if (typeof rec === 'string') {
-        // пример: "Даша: +79104653100 - Т-банк"
-        // имя берём до двоеточия, остальное как телефон/банк
+        // пример строки: "Даша: +79104653100 - Т-банк"
         const name = (rec.split(':')[0] || '').trim() || key;
         const m = rec.match(/:\s*([^–-]+)[–-]\s*(.+)$/); // телефон — банк
         out[name] = { phone: m ? m[1].trim() : '', bank: m ? m[2].trim() : rec };
       } else {
-        // ключ = имя, значение = { phone, bank }
         out[key] = { phone: rec.phone || '', bank: rec.bank || '' };
       }
     }
     return out;
   },
   async saveRequisite(name, phone, bank){
-    // нормализуем в объектный вид
     await set(ref(db, `${P.bank}/${name}`), { phone, bank });
   },
   async deleteRequisite(name){
@@ -179,7 +175,7 @@ const rtdb = {
     return Array.isArray(v) ? v.filter(Boolean) : Object.values(v);
   },
 
-  // авторизация-заглушка (включу реальную по запросу)
+  // простая «авторизация»
   async authLogin(){ localStorage.setItem('isAdmin','1'); return true; },
   async authLogout(){ localStorage.removeItem('isAdmin'); },
   isAdmin(){ return !!localStorage.getItem('isAdmin'); },

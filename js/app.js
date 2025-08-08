@@ -2,7 +2,7 @@
   const $=(s,c=document)=>c.querySelector(s);
   const $$=(s,c=document)=>Array.from(c.querySelectorAll(s));
 
-  // Animated tab transitions
+  // --- навигация с анимацией ---
   const tabs=$$('.tabbar button'), pages=$$('.page');
   function show(page){
     pages.forEach(p=>{
@@ -16,31 +16,37 @@
   tabs.forEach(b=>b.addEventListener('click', ()=>show(b.dataset.page)));
   show(localStorage.getItem('activePage')||'checkin');
 
-  // Populate selects
+  // --- заполнение списков ---
   async function refreshEmployees(){
     const list = await DB.getEmployees();
     const empSel = $('#employee'); const bankEmp = $('#bankEmployee');
-    empSel.innerHTML = '<option value="">Сотрудник</option>';
-    bankEmp.innerHTML = '<option value="">Сотрудник</option>';
-    list.forEach(n => { empSel.append(new Option(n,n)); bankEmp.append(new Option(n,n)); });
+    if (empSel) empSel.innerHTML = '<option value="">Сотрудник</option>';
+    if (bankEmp) bankEmp.innerHTML = '<option value="">Сотрудник</option>';
+    (list||[]).forEach(n => {
+      if (empSel) empSel.append(new Option(n,n));
+      if (bankEmp) bankEmp.append(new Option(n,n));
+    });
   }
   async function refreshPoints(){
     const list = await DB.getPoints();
-    const sel = $('#point'); sel.innerHTML = '<option value="">ПВЗ</option>';
-    list.forEach(p => sel.append(new Option(p,p)));
+    const sel = $('#point'); if (!sel) return;
+    sel.innerHTML = '<option value="">ПВЗ</option>';
+    (list||[]).forEach(p => sel.append(new Option(p,p)));
   }
 
-  // Check-in
-  $('#btn-checkin').addEventListener('click', async () => {
+  // --- отметка ---
+  const checkinBtn = $('#btn-checkin');
+  if (checkinBtn) checkinBtn.addEventListener('click', async () => {
     const name=$('#employee').value, point=$('#point').value;
     if(!name||!point) return alert('Выбери сотрудника и ПВЗ');
     await DB.markShift({name, point, date: new Date()});
-    $('#checkinStatus').textContent = `Отмечено: ${name} @ ${point} • ${new Date().toLocaleString('ru-RU')}`;
+    const s=$('#checkinStatus');
+    if (s) s.textContent = `Отмечено: ${name} @ ${point} • ${new Date().toLocaleString('ru-RU')}`;
     renderCalendar(currentYear, currentMonth);
     refreshPayroll();
   });
 
-  // Calendar
+  // --- календарь ---
   const monthTitle=$('#monthTitle'), cal=$('#calendar');
   let today=new Date(); let currentYear=today.getFullYear(), currentMonth=today.getMonth();
   function monthName(y,m){ return new Date(y,m,1).toLocaleDateString('ru-RU',{month:'long',year:'numeric'}); }
@@ -49,7 +55,8 @@
     const cells=[]; for(let i=0;i<42;i++){ const d=new Date(start); d.setDate(start.getDate()+i); cells.push(d); } return cells;
   }
   async function renderCalendar(y,m){
-    monthTitle.textContent = monthName(y,m);
+    if (monthTitle) monthTitle.textContent = monthName(y,m);
+    if (!cal) return;
     const shifts = await DB.getShiftsByMonth(y,m);
     cal.innerHTML = '';
     monthDays(y,m).forEach(d=>{
@@ -67,10 +74,11 @@
       cal.appendChild(cell);
     });
   }
-  $('#prevMonth').addEventListener('click', ()=>{ currentMonth--; if(currentMonth<0){currentMonth=11; currentYear--; } renderCalendar(currentYear,currentMonth); refreshPayroll(); });
-  $('#nextMonth').addEventListener('click', ()=>{ currentMonth++; if(currentMonth>11){currentMonth=0; currentYear++; } renderCalendar(currentYear,currentMonth); refreshPayroll(); });
+  const prev=$('#prevMonth'), next=$('#nextMonth');
+  if (prev) prev.addEventListener('click', ()=>{ currentMonth--; if(currentMonth<0){currentMonth=11; currentYear--; } renderCalendar(currentYear,currentMonth); refreshPayroll(); });
+  if (next) next.addEventListener('click', ()=>{ currentMonth++; if(currentMonth>11){currentMonth=0; currentYear++; } renderCalendar(currentYear,currentMonth); refreshPayroll(); });
 
-  // Payroll with per-point rates
+  // --- зарплаты по ставкам ПВЗ ---
   async function refreshPayroll(){
     const rates = await DB.getPointsWithRates(); // {point: rate}
     const byDay = await DB.getShiftsByMonth(currentYear, currentMonth);
@@ -80,9 +88,11 @@
       const rate = Number(rates[s.point]||0);
       totals[s.name]=(totals[s.name]||0)+rate;
     }));
-    $('#shiftsCount').textContent = Object.values(counts).reduce((a,b)=>a+b,0) || 0;
-    $('#total').textContent = (Object.values(totals).reduce((a,b)=>a+b,0) || 0) + ' ₽';
-    const body=$('#payrollBody'); body.innerHTML='';
+    const sCount=$('#shiftsCount'), total=$('#total');
+    if (sCount) sCount.textContent = Object.values(counts).reduce((a,b)=>a+b,0) || 0;
+    if (total) total.textContent = (Object.values(totals).reduce((a,b)=>a+b,0) || 0) + ' ₽';
+    const body=$('#payrollBody'); if (!body) return;
+    body.innerHTML='';
     Object.keys({...counts,...totals}).sort().forEach(name=>{
       const tr=document.createElement('tr');
       const cnt=counts[name]||0, sum=totals[name]||0;
@@ -91,10 +101,11 @@
     });
   }
 
-  // Requisites
+  // --- реквизиты ---
   async function refreshReqs(){
     const req = await DB.getRequisites();
-    const body = $('#reqBody'); body.innerHTML='';
+    const body = $('#reqBody'); if (!body) return;
+    body.innerHTML='';
     Object.entries(req).forEach(([name, {phone, bank}])=>{
       const tr=document.createElement('tr');
       tr.innerHTML = `<td class="py-2 px-3">${name}</td><td class="py-2 px-3">${phone||''} — ${bank||''}</td>
@@ -102,34 +113,38 @@
       body.appendChild(tr);
     });
   }
-  $('#saveReqBtn').addEventListener('click', async ()=>{
+  const saveReq=$('#saveReqBtn'), clearReq=$('#clearReqBtn'), reqBody=$('#reqBody');
+  if (saveReq) saveReq.addEventListener('click', async ()=>{
     const name=$('#bankEmployee').value, phone=$('#bankPhone').value, bank=$('#bankName').value;
     if(!name||!phone||!bank) return alert('Заполни все поля');
     await DB.saveRequisite(name, phone, bank); await refreshReqs();
   });
-  $('#reqBody').addEventListener('click', async (e)=>{
+  if (reqBody) reqBody.addEventListener('click', async (e)=>{
     const btn=e.target.closest('button[data-del]'); if(!btn) return;
     await DB.deleteRequisite(btn.dataset.del); await refreshReqs();
   });
-  $('#clearReqBtn').addEventListener('click', ()=>{ $('#bankPhone').value=''; $('#bankName').value=''; });
+  if (clearReq) clearReq.addEventListener('click', ()=>{ $('#bankPhone').value=''; $('#bankName').value=''; });
 
-  // Rules & Admins
-  async function loadRules(){ $('#rulesContent').innerHTML = await DB.getRules(); }
-  async function loadAdmins(){ const ul=$('#adminsList'); ul.innerHTML=''; (await DB.getAdmins()).forEach(a=>{ const li=document.createElement('li'); li.className='glass-ink rounded-xl p-3'; li.innerHTML=`<div class="text-sm font-semibold">${a.name||''}</div><div class="text-xs text-gray-600">${a.handle||''} ${a.phone||''}</div>`; ul.appendChild(li); }); }
+  // --- правила и админы ---
+  async function loadRules(){ const el=$('#rulesContent'); if (el) el.innerHTML = await DB.getRules(); }
+  async function loadAdmins(){
+    const ul=$('#adminsList'); if (!ul) return;
+    ul.innerHTML='';
+    (await DB.getAdmins()).forEach(a=>{
+      const li=document.createElement('li');
+      li.className='glass-ink rounded-xl p-3';
+      li.innerHTML=`<div class="text-sm font-semibold">${a.name||''}</div><div class="text-xs text-gray-600">${a.handle||''} ${a.phone||''}</div>`;
+      ul.appendChild(li);
+    });
+  }
 
-  // Auth (stub)
-  $('#btn-login').addEventListener('click', async ()=>{ await DB.authLogin(); applyAuth(); });
-  $('#btn-logout').addEventListener('click', async ()=>{ await DB.authLogout(); applyAuth(); });
-  function applyAuth(){ const admin=DB.isAdmin(); $('#btn-login').classList.toggle('hidden',admin); $('#btn-logout').classList.toggle('hidden',!admin); $('#page-admin').classList.toggle('hidden',!admin); }
+  // --- простая «авторизация» ---
+  const login=$('#btn-login'), logout=$('#btn-logout');
+  if (login) login.addEventListener('click', async ()=>{ await DB.authLogin(); applyAuth(); });
+  if (logout) logout.addEventListener('click', async ()=>{ await DB.authLogout(); applyAuth(); });
+  function applyAuth(){ const admin=DB.isAdmin(); if(login) login.classList.toggle('hidden',admin); if(logout) logout.classList.toggle('hidden',!admin); $('#page-admin')?.classList.toggle('hidden',!admin); }
 
-  // Admin actions
-  $('#addEmp').addEventListener('click', async ()=>{ const v=$('#newEmp').value.trim(); if(!v) return; await DB.addEmployee(v); $('#newEmp').value=''; await refreshEmployees(); });
-  $('#delEmp').addEventListener('click', async ()=>{ const v=$('#employee').value; if(!v) return; await DB.deleteEmployee(v); await refreshEmployees(); });
-  $('#addPoint').addEventListener('click', async ()=>{ const v=$('#newPoint').value.trim(); if(!v) return; await DB.addPoint(v); $('#newPoint').value=''; await refreshPoints(); });
-  $('#delPoint').addEventListener('click', async ()=>{ const v=$('#point').value; if(!v) return; await DB.deletePoint(v); await refreshPoints(); });
-  $('#setRate').addEventListener('click', async ()=>{ const v=$('#newRate').value; await DB.setRate(v); await refreshPayroll(); });
-
-  // Init
+  // --- init ---
   (async function init(){
     applyAuth();
     await refreshEmployees(); await refreshPoints();

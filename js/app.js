@@ -1,5 +1,4 @@
 // js/app.js — UI + навигация + рендер
-
 (function(){
   const $=(s,c=document)=>c.querySelector(s);
   const $$=(s,c=document)=>Array.from(c.querySelectorAll(s));
@@ -56,37 +55,44 @@
     const first=new Date(y,m,1), start=new Date(y,m,1-((first.getDay()+6)%7));
     const cells=[]; for(let i=0;i<42;i++){ const d=new Date(start); d.setDate(start.getDate()+i); cells.push(d); } return cells;
   }
-  async function renderCalendar(y,m){
-  try {
-    if (monthTitle) monthTitle.textContent = monthName(y,m);
-    if (!cal) return;
 
-    const shifts = await DB.getShiftsByMonth(y,m) || {};
-    cal.innerHTML = '';
-    monthDays(y,m).forEach(d=>{
-      const iso=d.toISOString().slice(0,10);
-      const cell=document.createElement('div');
-      cell.className='cell'; cell.style.opacity=(d.getMonth()===m)?'1':'.45';
-      cell.innerHTML = `<div class="text-xs mb-1">${d.getDate()}</div>`;
-      const daily = Array.isArray(shifts[iso]) ? shifts[iso] : [];
-      if(daily.length){
-        const ul=document.createElement('ul'); ul.style.fontSize='11px'; ul.style.lineHeight='1.2';
-        daily.forEach(s=>{
-          if(!s) return;
-          const li=document.createElement('li');
-          li.textContent=`${s.name || '—'} — ${s.point || ''}`;
-          ul.appendChild(li);
-        });
-        cell.appendChild(ul);
-      }
-      if(iso === new Date().toISOString().slice(0,10)) cell.classList.add('active');
-      cal.appendChild(cell);
-    });
-  } catch (e) {
-    console.error('Render calendar error:', e);
+  async function renderCalendar(y, m) {
+    try {
+      if (monthTitle) monthTitle.textContent = monthName(y, m);
+      if (!cal) return;
+
+      const shifts = await DB.getShiftsByMonth(y, m) || {};
+      cal.innerHTML = '';
+
+      monthDays(y, m).forEach(d => {
+        const iso = d.toISOString().slice(0,10);
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.style.opacity = (d.getMonth() === m) ? '1' : '.45';
+        cell.innerHTML = `<div class="text-xs mb-1">${d.getDate()}</div>`;
+
+        const daily = Array.isArray(shifts[iso]) ? shifts[iso] : [];
+        if (daily.length) {
+          const ul = document.createElement('ul');
+          ul.style.fontSize = '11px';
+          ul.style.lineHeight = '1.2';
+          daily.forEach(s => {
+            if (!s) return;
+            const li = document.createElement('li');
+            li.textContent = `${s.name || '—'} — ${s.point || ''}`;
+            ul.appendChild(li);
+          });
+          cell.appendChild(ul);
+        }
+
+        if (iso === new Date().toISOString().slice(0,10)) cell.classList.add('active');
+        cal.appendChild(cell);
+      });
+    } catch (e) {
+      console.error('Render calendar error:', e);
+    }
   }
-}
-  }
+
   const prev=$('#prevMonth'), next=$('#nextMonth');
   if (prev) prev.addEventListener('click', ()=>{ currentMonth--; if(currentMonth<0){currentMonth=11; currentYear--; } renderCalendar(currentYear,currentMonth); refreshPayroll(); });
   if (next) next.addEventListener('click', ()=>{ currentMonth++; if(currentMonth>11){currentMonth=0; currentYear++; } renderCalendar(currentYear,currentMonth); refreshPayroll(); });

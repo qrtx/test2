@@ -1,7 +1,8 @@
 /* js/data.js — RTDB адаптер под твою БД + MOCK fallback
- * Подключать как ES-модуль до app.js
+ * Подключать как ES-модуль ДО app.js:
  * <script type="module" src="js/data.js"></script>
  */
+
 export const DATA_MODE = (localStorage.getItem('DATA_MODE') || 'FIREBASE_RTDB'); // 'FIREBASE_RTDB' | 'MOCK'
 
 /* ========= MOCK (на всякий случай) ========= */
@@ -125,31 +126,29 @@ const rtdb = {
     await set(push(ref(db, P.shifts)), payload);
   },
 
-  /* ----- смены по месяцу ----- */
-// Смены по месяцу (устойчиво к кривым записям)
-async function getShiftsByMonth(y, m){
-  const from = `${y}-${String(m+1).padStart(2,'0')}-01`;
-  const to   = `${y}-${String(m+1).padStart(2,'0')}-31`;
-  const q = query(ref(db, P.shifts), orderByChild('date'), startAt(from), endAt(to));
-  const snap = await get(q);
-  const raw  = snap.exists() ? Object.values(snap.val()) : [];
-  const res = {};
-  raw.forEach(s => {
-    if (!s || !s.date || !s.point || !(s.employee || s.name)) return; // пропускаем мусор
-    const key = (() => {
+  /* ----- смены по месяцу (устойчиво к кривым данным) ----- */
+  async getShiftsByMonth(y, m) {
+    const from = `${y}-${String(m+1).padStart(2,'0')}-01`;
+    const to   = `${y}-${String(m+1).padStart(2,'0')}-31`;
+    const q = query(ref(db, P.shifts), orderByChild('date'), startAt(from), endAt(to));
+    const snap = await get(q);
+    const raw  = snap.exists() ? Object.values(snap.val()) : [];
+    const res = {};
+    raw.forEach(s => {
+      if (!s || !s.date || !s.point || !(s.employee || s.name)) return;
+      let key = null;
       try {
         const d = new Date(s.date);
-        if (isNaN(d)) return null;
-        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-          .toISOString().slice(0,10);
-      } catch { return null; }
-    })();
-    if (!key) return;
-    (res[key] = res[key] || []).push({ name: s.employee || s.name, point: s.point });
-  });
-  return res;
-}
-
+        if (!isNaN(d)) {
+          key = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+            .toISOString().slice(0,10);
+        }
+      } catch(_) {}
+      if (!key) return;
+      (res[key] = res[key] || []).push({ name: s.employee || s.name, point: s.point });
+    });
+    return res;
+  },
 
   /* ----- реквизиты (bank) — нормализация строк/объектов ----- */
   async getRequisites(){
@@ -192,9 +191,7 @@ async function getShiftsByMonth(y, m){
   isAdmin(){ return !!localStorage.getItem('isAdmin'); },
 };
 
-/* ===== отдать адаптер приложению ===== */
+/* ===== отдать адаптер приложению и сигнал готовности ===== */
 window.DB = (DATA_MODE === 'FIREBASE_RTDB') ? rtdb : mockDB;
-
-// лог в консоль и событие для app.js
 console.log('[data.js] DB ready:', DATA_MODE);
 window.dispatchEvent(new Event('DB_READY'));

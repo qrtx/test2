@@ -1,3 +1,5 @@
+import './data.js'; // гарантирует загрузку модуля
+
 (function(){
   const $=(s,c=document)=>c.querySelector(s);
   const $$=(s,c=document)=>Array.from(c.querySelectorAll(s));
@@ -145,12 +147,21 @@
   function applyAuth(){ const admin=DB.isAdmin(); if(login) login.classList.toggle('hidden',admin); if(logout) logout.classList.toggle('hidden',!admin); $('#page-admin')?.classList.toggle('hidden',!admin); }
 
   // --- init ---
-  (async function init(){
-    applyAuth();
-    await refreshEmployees(); await refreshPoints();
-    await renderCalendar(currentYear, currentMonth);
-    await refreshPayroll();
-    await refreshReqs();
-    await loadRules(); await loadAdmins();
+async function init(){
+  applyAuth();
+  await refreshEmployees(); await refreshPoints();
+  await renderCalendar(currentYear, currentMonth);
+  await refreshPayroll();
+  await refreshReqs();
+  await loadRules(); await loadAdmins();
+}
+
+// Если DB уже есть — стартуем сразу, если нет — ждём событие
+if (window.DB) {
+  init();
+} else {
+  window.addEventListener('DB_READY', init, { once: true });
+}
+
   })();
 })();

@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Учет смен — Liquid Glass</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- сначала модуль с базой -->
+  <script type="module" src="js/data.js"></script>
+<!-- потом обычный скрипт приложения -->
+  <script src="js/app.js"></script>
   <script>
     tailwind.config = { theme: { extend: { colors: { brand:{500:'#2b85ff'}, accent:{500:'#ff4dc7'} }, fontFamily:{ sans:['Inter','system-ui','Segoe UI','Roboto','Arial'] } } } }
   </script>

@@ -1,3 +1,5 @@
+// js/app.js — UI + навигация + рендер
+
 (function(){
   const $=(s,c=document)=>c.querySelector(s);
   const $$=(s,c=document)=>Array.from(c.querySelectorAll(s));
@@ -138,28 +140,32 @@
     });
   }
 
-  // --- простая «авторизация» ---
+  // --- «авторизация» ---
   const login=$('#btn-login'), logout=$('#btn-logout');
   if (login) login.addEventListener('click', async ()=>{ await DB.authLogin(); applyAuth(); });
   if (logout) logout.addEventListener('click', async ()=>{ await DB.authLogout(); applyAuth(); });
-  function applyAuth(){ const admin=DB.isAdmin(); if(login) login.classList.toggle('hidden',admin); if(logout) logout.classList.toggle('hidden',!admin); $('#page-admin')?.classList.toggle('hidden',!admin); }
+  function applyAuth(){
+    const admin=DB.isAdmin();
+    if (login)  login.classList.toggle('hidden',admin);
+    if (logout) logout.classList.toggle('hidden',!admin);
+    const adminPage = $('#page-admin');
+    if (adminPage) adminPage.classList.toggle('hidden', !admin);
+  }
 
   // --- init ---
-async function init(){
-  applyAuth();
-  await refreshEmployees(); await refreshPoints();
-  await renderCalendar(currentYear, currentMonth);
-  await refreshPayroll();
-  await refreshReqs();
-  await loadRules(); await loadAdmins();
-}
+  async function init(){
+    applyAuth();
+    await refreshEmployees(); await refreshPoints();
+    await renderCalendar(currentYear, currentMonth);
+    await refreshPayroll();
+    await refreshReqs();
+    await loadRules(); await loadAdmins();
+  }
 
-// Если DB уже есть — стартуем сразу, если нет — ждём событие
-if (window.DB) {
-  init();
-} else {
-  window.addEventListener('DB_READY', init, { once: true });
-}
-
-  })();
+  // если DB уже есть — стартуем сразу, иначе ждём событие от data.js
+  if (window.DB) {
+    init();
+  } else {
+    window.addEventListener('DB_READY', init, { once: true });
+  }
 })();

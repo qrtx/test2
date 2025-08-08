@@ -183,3 +183,7 @@ const rtdb = {
 
 /* ===== отдать адаптер приложению ===== */
 window.DB = (DATA_MODE === 'FIREBASE_RTDB') ? rtdb : mockDB;
+
+// лог в консоль и событие для app.js
+console.log('[data.js] DB ready:', DATA_MODE);
+window.dispatchEvent(new Event('DB_READY'));

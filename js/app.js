@@ -1,5 +1,3 @@
-import './data.js'; // гарантирует загрузку модуля
-
 (function(){
   const $=(s,c=document)=>c.querySelector(s);
   const $$=(s,c=document)=>Array.from(c.querySelectorAll(s));
